@@ -25,6 +25,13 @@ ScnMgr* Scn = NULL;
 using namespace std;
 
 DWORD PrevTime = 0;
+DWORD BulletTime = 0;
+float FrameTime = 0;
+
+int ScreenWidth = 1500;
+int ScreenHeiht = 1000;
+
+BOOL FrameProblem = false;
 
 auto chronobegin = chrono::high_resolution_clock::now();
 auto chronoElapesed = chrono::high_resolution_clock::now() - chronobegin;
@@ -41,18 +48,27 @@ int g_Shoot = SHOOT_NONE;
 //		  거리 -> m
 void RenderScene(void)
 {
-	char* Log = new char;
 
-	if (PrevTime == 0) {
-		PrevTime = GetTickCount();
-		return;
+	//몇몇 컴퓨터가 프레임이 지나치게 빠르게 출력되는 현상을 보임
+	//그 현상을 방지 하기 위해 그 컴퓨터에서만 0번을 클릭해서 프레임을
+	//강제로 조절하게 함
+	if (FrameProblem) 
+	{
+		if (PrevTime == 0) {
+			PrevTime = GetTickCount();
+			return;
+		}
+		DWORD CurrTime = GetTickCount();
+		DWORD ElapsedTime = CurrTime - PrevTime;
+		float eTime = (float)ElapsedTime / 1000.f;
+		if (eTime < 0.014)
+			return;
+		PrevTime = CurrTime;
 	}
-	DWORD CurrTime = GetTickCount();
-	DWORD ElapsedTime = CurrTime - PrevTime;
-	PrevTime = CurrTime;
-	float eTime = (float)ElapsedTime / 1000.f;
+
 	chronoElapesed = chrono::high_resolution_clock::now() - chronobegin;	
 	chronobegin = chrono::high_resolution_clock::now();
+	
 	//cout << chrono::duration<double>(chronoElapesed).count() << "초" << endl;
 
 	//cout << "g_W = " << g_W;
@@ -62,19 +78,22 @@ void RenderScene(void)
 
 	float ForceX = 0.f;
 	float ForceY = 0.f;
+	float ForceZ = 0.f;
+	float Amount = 100.f;
 
 	if (g_W)
-		ForceY += 100.f;
+		ForceY += Amount;
 	if (g_S)
-		ForceY -= 100.f;
+		ForceY -= Amount;
 	if (g_D)
-		ForceX += 100.f;
+		ForceX += Amount;
 	if (g_A)
-		ForceX -= 100.f;
+		ForceX -= Amount;
 
-	Scn->ApplyForce(ForceX, ForceY, chrono::duration<double>(chronoElapesed).count());
+
+
+	Scn->ApplyForce(ForceX, ForceY, ForceZ, chrono::duration<double>(chronoElapesed).count());
 	Scn->Update(chrono::duration<double>(chronoElapesed).count());
-	//Scn->Update(chrono::duration<double>(chronoElapesed).count());
 	Scn->RenderScene();
 	Scn->Shoot(g_Shoot);
 	Scn->GarbageCollector();
@@ -110,9 +129,19 @@ void KeyDownInput(unsigned char key, int x, int y)
 	case 'd': 
 		g_D = TRUE;
 		break;
+	case '0':
+		FrameProblem = 1 - FrameProblem;
+		break;
+	case 'p':
+		Scn->invincibilityClick();
+	case ' ':
+		Scn->RestartButtonClick();
+		break;
 	default:
 		break;
 	}
+
+	Scn->WhatRotation(key);
 }
 
 void KeyUpInput(unsigned char key, int x, int y)
@@ -131,6 +160,8 @@ void KeyUpInput(unsigned char key, int x, int y)
 		break;
 	case 'd':
 		g_D = FALSE;
+		break;
+	case ' ':
 		break;
 	default:
 		break;
@@ -169,7 +200,7 @@ int main(int argc, char **argv)
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(0, 0);
-	glutInitWindowSize(500, 500);
+	glutInitWindowSize(ScreenWidth, ScreenHeiht);
 	glutCreateWindow("Game Software Engineering KPU");
 	glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF);
 
@@ -183,7 +214,7 @@ int main(int argc, char **argv)
 		std::cout << "GLEW 3.0 not supported\n ";
 	}
 
-	Scn = new ScnMgr();
+	Scn = new ScnMgr(ScreenWidth, ScreenHeiht);
 
 	//랜더링 하는 함수를 넣어준다
 	glutDisplayFunc(RenderScene);
